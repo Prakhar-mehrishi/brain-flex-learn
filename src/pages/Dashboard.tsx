@@ -53,20 +53,28 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('Dashboard: No user found');
+        return;
+      }
+      
+      console.log('Dashboard: Fetching user data for:', user.id);
       
       try {
         // Get user role
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, points, streak_count')
           .eq('user_id', user.id)
           .single();
         
+        console.log('Dashboard: Profile data:', profile, 'Error:', profileError);
+        
         setUserRole(profile?.role || null);
 
         // Redirect admins to admin dashboard
         if (profile?.role === 'admin') {
+          console.log('Dashboard: Admin user detected, should redirect');
           return;
         }
 
@@ -134,7 +142,7 @@ const Dashboard = () => {
           );
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Dashboard: Error fetching user data:', error);
         toast({
           title: "Error",
           description: "Failed to load dashboard data",
@@ -145,14 +153,19 @@ const Dashboard = () => {
       }
     };
 
+    console.log('Dashboard: useEffect running, user:', user?.id);
     fetchUserData();
   }, [user, toast]);
 
+  console.log('Dashboard: Rendering - session:', !!session, 'userRole:', userRole, 'loading:', loading);
+
   if (!session) {
+    console.log('Dashboard: No session, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
   if (userRole === 'admin') {
+    console.log('Dashboard: Admin role detected, redirecting to admin');
     return <Navigate to="/admin" replace />;
   }
 
