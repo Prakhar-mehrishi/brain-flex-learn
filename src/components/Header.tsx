@@ -1,27 +1,56 @@
 import { Button } from "@/components/ui/button";
 import { Brain, Menu, X } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const { user, loading } = useAuth();
+  const location = useLocation();
 
-  const navigation = [
-    { name: "Features", href: "#features" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Resources", href: "#resources" },
-    { name: "About", href: "#about" },
-  ];
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) {
+        setUserRole(null);
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      setUserRole(profile?.role || null);
+    };
+
+    fetchUserRole();
+  }, [user]);
+
+  // Show different navigation based on current page and user status
+  const isLandingPage = location.pathname === '/';
+  const isDashboard = location.pathname === '/dashboard';
+  const isAdmin = location.pathname === '/admin';
+
+  const navigation = isLandingPage 
+    ? [
+        { name: "Features", href: "#features" },
+        { name: "Pricing", href: "#pricing" },
+        { name: "Resources", href: "#resources" },
+        { name: "About", href: "#about" },
+      ]
+    : [];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
       <nav className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to={user ? (userRole === 'admin' ? '/admin' : '/dashboard') : '/'} className="flex items-center gap-2">
             <div className="w-8 h-8 gradient-bg rounded-lg flex items-center justify-center">
               <Brain className="w-5 h-5 text-white" />
             </div>
@@ -30,6 +59,24 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
+            {user && (
+              <div className="flex items-center gap-6">
+                {userRole === 'admin' ? (
+                  <>
+                    <Link to="/admin" className={`text-sm font-medium transition-colors ${isAdmin ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}>
+                      Admin Dashboard
+                    </Link>
+                    <Link to="/dashboard" className={`text-sm font-medium transition-colors ${isDashboard ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}>
+                      User View
+                    </Link>
+                  </>
+                ) : (
+                  <Link to="/dashboard" className={`text-sm font-medium transition-colors ${isDashboard ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}>
+                    Dashboard
+                  </Link>
+                )}
+              </div>
+            )}
             {navigation.map((item) => (
               <a
                 key={item.name}
