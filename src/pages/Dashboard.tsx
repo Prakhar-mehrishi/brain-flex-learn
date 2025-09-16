@@ -50,15 +50,17 @@ const Dashboard = () => {
   });
   const [recentAttempts, setRecentAttempts] = useState<RecentAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataFetched, setDataFetched] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!user) {
-        console.log('Dashboard: No user found');
+      if (!user || dataFetched) {
+        console.log('Dashboard: No user found or data already fetched');
         return;
       }
       
       console.log('Dashboard: Fetching user data for:', user.id);
+      setDataFetched(true);
       
       try {
         // Get user role
@@ -72,9 +74,10 @@ const Dashboard = () => {
         
         setUserRole(profile?.role || null);
 
-        // Redirect admins to admin dashboard
+        // Redirect admins to admin dashboard - no need for early return
         if (profile?.role === 'admin') {
-          console.log('Dashboard: Admin user detected, should redirect');
+          console.log('Dashboard: Admin user detected, will redirect');
+          setLoading(false);
           return;
         }
 
@@ -153,9 +156,9 @@ const Dashboard = () => {
       }
     };
 
-    console.log('Dashboard: useEffect running, user:', user?.id);
+    console.log('Dashboard: useEffect running, user:', user?.id, 'dataFetched:', dataFetched);
     fetchUserData();
-  }, [user, toast]);
+  }, [user, toast, dataFetched]);
 
   console.log('Dashboard: Rendering - session:', !!session, 'userRole:', userRole, 'loading:', loading);
 
