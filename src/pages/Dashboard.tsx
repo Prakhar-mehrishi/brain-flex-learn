@@ -50,33 +50,25 @@ const Dashboard = () => {
   });
   const [recentAttempts, setRecentAttempts] = useState<RecentAttempt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dataFetched, setDataFetched] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!user || dataFetched) {
-        console.log('Dashboard: No user found or data already fetched');
+      if (!user) {
         return;
       }
       
-      console.log('Dashboard: Fetching user data for:', user.id);
-      setDataFetched(true);
-      
       try {
-        // Get user role
-        const { data: profile, error: profileError } = await supabase
+        // Get user role first
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role, points, streak_count')
           .eq('user_id', user.id)
           .single();
         
-        console.log('Dashboard: Profile data:', profile, 'Error:', profileError);
-        
         setUserRole(profile?.role || null);
 
-        // Redirect admins to admin dashboard - no need for early return
+        // If admin, just set loading to false and let the redirect happen
         if (profile?.role === 'admin') {
-          console.log('Dashboard: Admin user detected, will redirect');
           setLoading(false);
           return;
         }
@@ -145,7 +137,7 @@ const Dashboard = () => {
           );
         }
       } catch (error) {
-        console.error('Dashboard: Error fetching user data:', error);
+        console.error('Error fetching user data:', error);
         toast({
           title: "Error",
           description: "Failed to load dashboard data",
@@ -156,20 +148,17 @@ const Dashboard = () => {
       }
     };
 
-    console.log('Dashboard: useEffect running, user:', user?.id, 'dataFetched:', dataFetched);
     fetchUserData();
-  }, [user, toast, dataFetched]);
-
-  console.log('Dashboard: Rendering - session:', !!session, 'userRole:', userRole, 'loading:', loading);
+  }, [user, toast]);
 
   if (!session) {
-    console.log('Dashboard: No session, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
   if (userRole === 'admin') {
-    console.log('Dashboard: Admin role detected, redirecting to admin');
-    return <Navigate to="/admin" replace />;
+    // Use window.location to force navigation and prevent loops
+    window.location.href = '/admin';
+    return null;
   }
 
   if (loading) {
