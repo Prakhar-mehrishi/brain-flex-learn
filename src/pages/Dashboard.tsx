@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, Trophy, TrendingUp, Clock, Star, Play } from "lucide-react";
+import { BookOpen, Trophy, TrendingUp, Clock, Star, Play, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AssignedQuiz {
@@ -50,94 +50,50 @@ const Dashboard = () => {
   });
   const [recentAttempts, setRecentAttempts] = useState<RecentAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) {
+        setLoading(false);
         return;
       }
       
       try {
-        // Get user role first
-        const { data: profile } = await supabase
+        setLoading(true);
+        setError(null);
+
+        // Get user profile and role
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role, points, streak_count')
+          .select('role, points, streak_count, full_name')
           .eq('user_id', user.id)
           .single();
         
-        setUserRole(profile?.role || null);
+        if (profileError) {
+          console.error('Profile error:', profileError);
+          setError('Failed to load user profile');
+          return;
+        }
 
-        // If admin, just set loading to false and let the redirect happen
+        setUserRole(profile?.role || 'user');
+
+        // If user is admin, redirect to admin dashboard
         if (profile?.role === 'admin') {
           setLoading(false);
           return;
         }
 
-        // Get assigned quizzes (published quizzes for now - later can be more specific assignments)
-        const { data: quizzes } = await supabase
-          .from('quizzes')
-          .select('id, title, topic, description, total_questions, created_at')
-          .eq('is_published', true)
-          .order('created_at', { ascending: false });
+        // Continue loading user data for non-admin users
+        await Promise.all([
+          loadQuizzes(),
+          loadUserStats(profile),
+          loadRecentAttempts()
+        ]);
 
-        setAssignedQuizzes(quizzes || []);
-
-        // Get user attempts for stats
-        const { data: attempts } = await supabase
-          .from('quiz_attempts')
-          .select(`
-            id, score, completed_at, time_spent_seconds, total_questions,
-            quizzes:quiz_id (title, topic)
-          `)
-          .eq('user_id', user.id)
-          .not('completed_at', 'is', null)
-          .order('completed_at', { ascending: false });
-
-        if (attempts) {
-          // Calculate stats
-          const totalCompleted = attempts.length;
-          const avgScore = attempts.length > 0 
-            ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length)
-            : 0;
-
-          // Group by topic for mastery tracking
-          const topicGroups = attempts.reduce((acc, attempt) => {
-            const topic = (attempt.quizzes as any)?.topic || 'Unknown';
-            if (!acc[topic]) {
-              acc[topic] = { scores: [], count: 0 };
-            }
-            acc[topic].scores.push(attempt.score);
-            acc[topic].count++;
-            return acc;
-          }, {} as Record<string, { scores: number[]; count: number }>);
-
-          const topicMastery = Object.entries(topicGroups).map(([topic, data]) => ({
-            topic,
-            score: Math.round(data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length),
-            count: data.count
-          }));
-
-          setUserStats({
-            totalQuizzesCompleted: totalCompleted,
-            averageScore: avgScore,
-            totalPoints: profile?.points || 0,
-            currentStreak: profile?.streak_count || 0,
-            topicMastery
-          });
-
-          // Set recent attempts for history
-          setRecentAttempts(
-            attempts.slice(0, 5).map(attempt => ({
-              id: attempt.id,
-              quiz_title: (attempt.quizzes as any)?.title || 'Unknown Quiz',
-              score: attempt.score,
-              completed_at: attempt.completed_at!,
-              time_spent_seconds: attempt.time_spent_seconds
-            }))
-          );
-        }
       } catch (error) {
         console.error('Error fetching user data:', error);
+        setError('Failed to load dashboard data');
         toast({
           title: "Error",
           description: "Failed to load dashboard data",
@@ -148,17 +104,114 @@ const Dashboard = () => {
       }
     };
 
+    const loadQuizzes = async () => {
+      const { data: quizzes, error } = await supabase
+        .from('quizzes')
+        .select('id, title, topic, description, total_questions, created_at')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Quizzes error:', error);
+        throw error;
+      }
+
+      setAssignedQuizzes(quizzes || []);
+    };
+
+    const loadUserStats = async (profile: any) => {
+      const { data: attempts, error } = await supabase
+        .from('quiz_attempts')
+        .select(`
+          id, score, completed_at, time_spent_seconds, total_questions,
+          quizzes:quiz_id (title, topic)
+        `)
+        .eq('user_id', user!.id)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false });
+
+      if (error) {
+        console.error('Stats error:', error);
+        throw error;
+      }
+
+      if (attempts && attempts.length > 0) {
+        const totalCompleted = attempts.length;
+        const avgScore = Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length);
+
+        // Group by topic for mastery tracking
+        const topicGroups = attempts.reduce((acc, attempt) => {
+          const topic = (attempt.quizzes as any)?.topic || 'Unknown';
+          if (!acc[topic]) {
+            acc[topic] = { scores: [], count: 0 };
+          }
+          acc[topic].scores.push(attempt.score);
+          acc[topic].count++;
+          return acc;
+        }, {} as Record<string, { scores: number[]; count: number }>);
+
+        const topicMastery = Object.entries(topicGroups).map(([topic, data]) => ({
+          topic,
+          score: Math.round(data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length),
+          count: data.count
+        }));
+
+        setUserStats({
+          totalQuizzesCompleted: totalCompleted,
+          averageScore: avgScore,
+          totalPoints: profile?.points || 0,
+          currentStreak: profile?.streak_count || 0,
+          topicMastery
+        });
+      } else {
+        setUserStats({
+          totalQuizzesCompleted: 0,
+          averageScore: 0,
+          totalPoints: profile?.points || 0,
+          currentStreak: profile?.streak_count || 0,
+          topicMastery: []
+        });
+      }
+    };
+
+    const loadRecentAttempts = async () => {
+      const { data: attempts, error } = await supabase
+        .from('quiz_attempts')
+        .select(`
+          id, score, completed_at, time_spent_seconds,
+          quizzes:quiz_id (title)
+        `)
+        .eq('user_id', user!.id)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error('Recent attempts error:', error);
+        throw error;
+      }
+
+      setRecentAttempts(
+        (attempts || []).map(attempt => ({
+          id: attempt.id,
+          quiz_title: (attempt.quizzes as any)?.title || 'Unknown Quiz',
+          score: attempt.score,
+          completed_at: attempt.completed_at!,
+          time_spent_seconds: attempt.time_spent_seconds
+        }))
+      );
+    };
+
     fetchUserData();
   }, [user, toast]);
 
+  // Authentication and role checks
   if (!session) {
     return <Navigate to="/auth" replace />;
   }
 
   if (userRole === 'admin') {
-    // Use window.location to force navigation and prevent loops
-    window.location.href = '/admin';
-    return null;
+    return <Navigate to="/admin" replace />;
   }
 
   if (loading) {
@@ -170,6 +223,27 @@ const Dashboard = () => {
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading your dashboard...</p>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Unable to Load Dashboard</h2>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
             </div>
           </div>
         </main>
@@ -244,6 +318,7 @@ const Dashboard = () => {
                   <div className="text-center py-8">
                     <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">No quizzes available yet</p>
+                    <p className="text-sm text-muted-foreground mt-2">Check back later for new content!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -252,7 +327,9 @@ const Dashboard = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <h3 className="font-semibold mb-1">{quiz.title}</h3>
-                            <p className="text-sm text-muted-foreground mb-2">{quiz.description}</p>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {quiz.description || "Test your knowledge on this topic"}
+                            </p>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <BookOpen className="h-3 w-3" />
