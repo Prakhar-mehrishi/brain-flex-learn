@@ -336,6 +336,19 @@ const QuizTaking = () => {
                 Retake Quiz
               </Button>
             </div>
+
+            {/* Quick Actions */}
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground mb-3">What's next?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
+                  Browse More Quizzes
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                  Practice Again
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
