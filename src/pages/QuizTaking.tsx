@@ -239,9 +239,7 @@ const QuizTaking = () => {
     }
   };
 
-  if (!session) {
-    return <Navigate to="/auth" replace />;
-  }
+ 
 
   if (loading) {
     return (
@@ -253,7 +251,9 @@ const QuizTaking = () => {
       </div>
     );
   }
-
+ if (!session) {
+    return <Navigate to="/auth" replace />;
+  }
   if (!quiz || questions.length === 0) {
     return <Navigate to="/dashboard" replace />;
   }
