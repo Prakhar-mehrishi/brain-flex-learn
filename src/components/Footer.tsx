@@ -96,7 +96,7 @@ const Footer = () => {
         {/* Bottom Footer */}
         <div className="py-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            © 2024 AdaptiveQuiz. All rights reserved.
+            © 2025 AdaptiveQuiz. All rights reserved.
           </div>
           
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
