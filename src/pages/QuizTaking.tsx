@@ -447,6 +447,17 @@ const QuizTaking = () => {
                   </button>
                 ))
               )}
+
+              {currentQuestion.question_type === 'short_answer' && (
+    <input
+      type="text"
+      value={selectedAnswer}
+      onChange={(e) => !showFeedback && setSelectedAnswer(e.target.value)}
+      disabled={showFeedback}
+      placeholder="Type your answer..."
+      className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+    />
+  )}
             </div>
 
             {/* Feedback */}
