@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import QuizSummary from "@/components/QuizSummary";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   BookOpen, 
@@ -54,8 +56,10 @@ interface RecentAttempt {
 const Dashboard = () => {
   const { user, session } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [assignedQuizzes, setAssignedQuizzes] = useState<AssignedQuiz[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     totalQuizzesCompleted: 0,
     averageScore: 0,
@@ -69,6 +73,7 @@ const Dashboard = () => {
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState<string>("all");
 
   // Helper functions
   const loadQuizzes = async () => {
@@ -169,6 +174,36 @@ const Dashboard = () => {
     );
   };
 
+  const loadAssignments = async () => {
+    try {
+      const { data } = await supabase
+        .from('quiz_assignments')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('is_completed', false);
+      
+      if (data && data.length > 0) {
+        const assignmentsWithQuizzes = await Promise.all(
+          data.map(async (assignment) => {
+            const { data: quiz } = await supabase
+              .from('quizzes')
+              .select('*')
+              .eq('id', assignment.quiz_id)
+              .single();
+            
+            return {
+              ...assignment,
+              quizzes: quiz
+            };
+          })
+        );
+        setAssignments(assignmentsWithQuizzes);
+      }
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) {
@@ -205,7 +240,8 @@ const Dashboard = () => {
         await Promise.all([
           loadQuizzes(),
           loadUserStats(profile),
-          loadRecentAttempts()
+          loadRecentAttempts(),
+          loadAssignments()
         ]);
 
       } catch (error) {
@@ -238,7 +274,8 @@ const Dashboard = () => {
           await Promise.all([
             loadQuizzes(),
             loadUserStats(profile),
-            loadRecentAttempts()
+            loadRecentAttempts(),
+            loadAssignments()
           ]);
         }
       }
@@ -249,10 +286,12 @@ const Dashboard = () => {
     }
   };
 
-  const filteredQuizzes = assignedQuizzes.filter(quiz =>
-    quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    quiz.topic.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredQuizzes = assignedQuizzes.filter(quiz => {
+    const matchesSearch = quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quiz.topic.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTopic = selectedTopic === "all" || quiz.topic === selectedTopic;
+    return matchesSearch && matchesTopic;
+  });
 
   // Authentication and role checks
   if (!session) {
@@ -369,26 +408,86 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Available Quizzes */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Assigned Quizzes Section */}
+            {assignments.length > 0 && (
+              <Card className="border-primary/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Badge>Assigned to You</Badge>
+                  </CardTitle>
+                  <CardDescription>Quizzes specifically assigned by your instructor</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {assignments.map((assignment) => (
+                      <div key={assignment.id} className="border rounded-lg p-4 bg-primary/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold mb-1">{assignment.quizzes?.title}</h3>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {assignment.quizzes?.description || "Test your knowledge on this topic"}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <BookOpen className="h-3 w-3" />
+                                {assignment.quizzes?.total_questions} questions
+                              </span>
+                              {assignment.due_date && (
+                                <span className="flex items-center gap-1 text-orange-600">
+                                  <Clock className="h-3 w-3" />
+                                  Due: {new Date(assignment.due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            className="ml-4"
+                            onClick={() => navigate(`/quiz/${assignment.quizzes?.id}`)}
+                          >
+                            <Play className="h-4 w-4 mr-2" />
+                            Start
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Available Quizzes</CardTitle>
-                    <CardDescription>Start a new quiz to test your knowledge</CardDescription>
+                    <CardTitle>All Available Quizzes</CardTitle>
+                    <CardDescription>Browse and start any quiz</CardDescription>
                   </div>
                   <Badge variant="secondary">{filteredQuizzes.length} available</Badge>
                 </div>
                 {assignedQuizzes.length > 0 && (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search quizzes..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 w-full border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
+                  <div className="flex gap-2 mt-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Search quizzes..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by topic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Topics</SelectItem>
+                        {Array.from(new Set(assignedQuizzes.map(q => q.topic))).map(topic => (
+                          <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </CardHeader>

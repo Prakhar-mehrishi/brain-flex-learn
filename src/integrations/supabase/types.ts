@@ -192,6 +192,50 @@ export type Database = {
           },
         ]
       }
+      quiz_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          is_completed: boolean
+          quiz_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          quiz_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          quiz_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_assignments_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_attempts: {
         Row: {
           completed_at: string | null
@@ -332,6 +376,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_engagement_metrics: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          quizzes_completed: number
+          total_score: number
+          total_time_spent_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          quizzes_completed?: number
+          total_score?: number
+          total_time_spent_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          quizzes_completed?: number
+          total_score?: number
+          total_time_spent_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

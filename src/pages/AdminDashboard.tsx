@@ -11,6 +11,10 @@ import { QuizCreationForm } from "@/components/admin/QuizCreationForm";
 import { QuizList } from "@/components/admin/QuizList";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { AnalyticsDashboard } from "@/components/admin/AnalyticsDashboard";
+import { QuizPerformanceReport } from "@/components/admin/QuizPerformanceReport";
+import { UserEngagementMetrics } from "@/components/admin/UserEngagementMetrics";
+import { QuizAssignments } from "@/components/admin/QuizAssignments";
+import { ExcelQuizImport } from "@/components/admin/ExcelQuizImport";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Users, BarChart3, Plus, AlertCircle, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -287,14 +291,17 @@ const AdminDashboard = () => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="create-quiz" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="create-quiz" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create Quiz
             </TabsTrigger>
-            <TabsTrigger value="quiz-management">Quiz Management</TabsTrigger>
-            <TabsTrigger value="user-management">User Management</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="import-quiz">Import CSV</TabsTrigger>
+            <TabsTrigger value="quiz-management">Manage Quizzes</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="user-management">Users</TabsTrigger>
+            <TabsTrigger value="quiz-reports">Quiz Reports</TabsTrigger>
+            <TabsTrigger value="engagement">Engagement</TabsTrigger>
           </TabsList>
 
           <TabsContent value="create-quiz">
@@ -311,16 +318,28 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="import-quiz">
+            <ExcelQuizImport />
+          </TabsContent>
+
           <TabsContent value="quiz-management">
             <QuizList />
+          </TabsContent>
+
+          <TabsContent value="assignments">
+            <QuizAssignments />
           </TabsContent>
 
           <TabsContent value="user-management">
             <UserManagement />
           </TabsContent>
 
-          <TabsContent value="analytics">
-            <AnalyticsDashboard />
+          <TabsContent value="quiz-reports">
+            <QuizPerformanceReport />
+          </TabsContent>
+
+          <TabsContent value="engagement">
+            <UserEngagementMetrics />
           </TabsContent>
         </Tabs>
       </main>
