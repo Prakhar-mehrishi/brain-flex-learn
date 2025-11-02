@@ -66,7 +66,6 @@ const QuizTaking = () => {
           .from('quizzes')
           .select('*')
           .eq('id', quizId)
-          .eq('is_published', true)
           .single();
 
         if (quizError || !quizData) {
