@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Eye } from "lucide-react";
 
 interface UserProfile {
   id: string;
+  user_id: string;
   full_name: string;
   email: string;
   role: string;
@@ -19,6 +22,7 @@ interface UserProfile {
 
 export const UserManagement = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +114,7 @@ export const UserManagement = () => {
                   <TableHead>Points</TableHead>
                   <TableHead>Streak</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -128,6 +133,16 @@ export const UserManagement = () => {
                     <TableCell>{user.streak_count} days</TableCell>
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/admin/user/${user.user_id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Profile
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
