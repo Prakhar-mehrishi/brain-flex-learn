@@ -17,6 +17,7 @@ export const ExcelQuizImport = () => {
   const [quizTopic, setQuizTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{ row: number; errors: string[] }[]>([]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -53,12 +54,14 @@ export const ExcelQuizImport = () => {
     }
 
     setFile(selectedFile);
+    setValidationErrors([]);
     
-    // Parse CSV for preview
+    // Parse CSV for preview and validation
     if (selectedFile.name.endsWith('.csv')) {
       const text = await selectedFile.text();
       const lines = text.split('\n').filter(line => line.trim());
-      const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      
       const preview = lines.slice(1, 4).map(line => {
         const values = parseCSVLine(line).map(v => v.replace(/^"|"$/g, ''));
         return headers.reduce((obj, header, idx) => {
@@ -67,7 +70,67 @@ export const ExcelQuizImport = () => {
         }, {} as any);
       });
       setPreviewData(preview);
+      
+      // Validate all rows
+      const errors = validateCSV(lines, headers);
+      setValidationErrors(errors);
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Validation Errors Found",
+          description: `Found ${errors.length} row(s) with errors. Please review below.`,
+          variant: "destructive"
+        });
+      }
     }
+  };
+
+  const validateRow = (row: any, rowNumber: number): string[] => {
+    const errors: string[] = [];
+    
+    // Check required fields
+    if (!row.question?.trim()) errors.push("Question is required");
+    if (!row.option_a?.trim()) errors.push("Option A is required");
+    if (!row.option_b?.trim()) errors.push("Option B is required");
+    if (!row.option_c?.trim()) errors.push("Option C is required");
+    if (!row.option_d?.trim()) errors.push("Option D is required");
+    if (!row.correct_answer?.trim()) errors.push("Correct answer is required");
+    
+    // Validate correct_answer format
+    if (row.correct_answer && !['A', 'B', 'C', 'D'].includes(row.correct_answer.toUpperCase())) {
+      errors.push("Correct answer must be A, B, C, or D");
+    }
+    
+    // Validate difficulty if provided
+    if (row.difficulty && !['easy', 'medium', 'hard'].includes(row.difficulty.toLowerCase())) {
+      errors.push("Difficulty must be easy, medium, or hard");
+    }
+    
+    // Validate points if provided
+    if (row.points && (isNaN(parseInt(row.points)) || parseInt(row.points) < 1)) {
+      errors.push("Points must be a positive number");
+    }
+    
+    return errors;
+  };
+
+  const validateCSV = (lines: string[], headers: string[]): { row: number; errors: string[] }[] => {
+    const validationErrors: { row: number; errors: string[] }[] = [];
+    
+    lines.slice(1).forEach((line, index) => {
+      const values = parseCSVLine(line).map(v => v.trim().replace(/^"|"$/g, ''));
+      const row: any = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || '';
+      });
+      
+      const rowErrors = validateRow(row, index + 2); // +2 because of 0-index and header row
+      if (rowErrors.length > 0) {
+        validationErrors.push({ row: index + 2, errors: rowErrors });
+      }
+    });
+    
+    return validationErrors;
   };
 
   const downloadSampleCSV = () => {
@@ -82,6 +145,15 @@ export const ExcelQuizImport = () => {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Cannot Import",
+        description: "Please fix all validation errors before importing",
         variant: "destructive"
       });
       return;
@@ -165,6 +237,7 @@ export const ExcelQuizImport = () => {
       setQuizDescription("");
       setQuizTopic("");
       setPreviewData([]);
+      setValidationErrors([]);
       
     } catch (error: any) {
       console.error('Error importing quiz:', error);
@@ -250,6 +323,38 @@ export const ExcelQuizImport = () => {
             )}
           </div>
 
+          {validationErrors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-semibold">Found {validationErrors.length} row(s) with errors:</p>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {validationErrors.map((error) => (
+                      <div key={error.row} className="text-sm">
+                        <span className="font-medium">Row {error.row}:</span>
+                        <ul className="list-disc list-inside ml-2">
+                          {error.errors.map((err, idx) => (
+                            <li key={idx}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {previewData.length > 0 && validationErrors.length === 0 && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-semibold text-green-600">All rows validated successfully!</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {previewData.length > 0 && (
             <div className="space-y-2">
               <Label>Preview (First 3 rows)</Label>
@@ -263,7 +368,7 @@ export const ExcelQuizImport = () => {
 
           <Button
             onClick={handleImport}
-            disabled={loading || !file || !quizTitle || !quizTopic}
+            disabled={loading || !file || !quizTitle || !quizTopic || validationErrors.length > 0}
             className="w-full"
           >
             {loading ? (
