@@ -176,28 +176,36 @@ const Dashboard = () => {
 
   const loadAssignments = async () => {
     try {
+      console.log('Dashboard: Loading assignments for user', user?.id);
+      
       const { data, error: assignmentError } = await supabase
         .from('quiz_assignments')
         .select('*')
         .eq('user_id', user?.id)
         .eq('is_completed', false);
       
+      console.log('Dashboard: Assignments query result', { data, assignmentError });
+      
       if (assignmentError) {
-        console.error('Error fetching assignments:', assignmentError);
+        console.error('Dashboard: Error fetching assignments:', assignmentError);
         return;
       }
       
       if (data && data.length > 0) {
         const assignmentsWithQuizzes = await Promise.all(
           data.map(async (assignment) => {
+            console.log('Dashboard: Fetching quiz for assignment', assignment.id, assignment.quiz_id);
+            
             const { data: quiz, error: quizError } = await supabase
               .from('quizzes')
               .select('*')
               .eq('id', assignment.quiz_id)
               .single();
             
+            console.log('Dashboard: Quiz fetch result', { quiz, quizError });
+            
             if (quizError) {
-              console.error('Error fetching quiz:', quizError);
+              console.error('Dashboard: Error fetching quiz:', quizError);
               return null;
             }
             
@@ -210,12 +218,14 @@ const Dashboard = () => {
         
         // Filter out null values
         const validAssignments = assignmentsWithQuizzes.filter(a => a !== null);
+        console.log('Dashboard: Valid assignments loaded', validAssignments.length);
         setAssignments(validAssignments);
       } else {
+        console.log('Dashboard: No assignments found');
         setAssignments([]);
       }
     } catch (error) {
-      console.error('Error fetching assignments:', error);
+      console.error('Dashboard: Error fetching assignments:', error);
       toast({
         title: "Error",
         description: "Failed to load assigned quizzes",
@@ -464,9 +474,14 @@ const Dashboard = () => {
                           <Button 
                             className="ml-4"
                             onClick={() => {
+                              console.log('Dashboard: Start quiz clicked', assignment);
+                              console.log('Dashboard: Quiz ID:', assignment.quizzes?.id);
+                              
                               if (assignment.quizzes?.id) {
+                                console.log('Dashboard: Navigating to /quiz/', assignment.quizzes.id);
                                 navigate(`/quiz/${assignment.quizzes.id}`);
                               } else {
+                                console.error('Dashboard: Quiz ID not found in assignment', assignment);
                                 toast({
                                   title: "Error",
                                   description: "Quiz not found",

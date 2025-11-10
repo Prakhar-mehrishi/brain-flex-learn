@@ -58,9 +58,14 @@ const QuizTaking = () => {
 
   useEffect(() => {
     const initializeQuiz = async () => {
-      if (!user || !quizId) return;
+      if (!user || !quizId) {
+        console.log('QuizTaking: Missing user or quizId', { user: !!user, quizId });
+        return;
+      }
 
       try {
+        console.log('QuizTaking: Fetching quiz', quizId);
+        
         // Fetch quiz data
         const { data: quizData, error: quizError } = await supabase
           .from('quizzes')
@@ -68,7 +73,10 @@ const QuizTaking = () => {
           .eq('id', quizId)
           .single();
 
+        console.log('QuizTaking: Quiz fetch result', { quizData, quizError });
+
         if (quizError || !quizData) {
+          console.error('QuizTaking: Quiz not found', quizError);
           toast({
             title: "Error",
             description: "Quiz not found or not accessible",
@@ -87,7 +95,10 @@ const QuizTaking = () => {
           .eq('quiz_id', quizId)
           .order('order_index');
 
+        console.log('QuizTaking: Questions fetch result', { count: questionsData?.length, questionsError });
+
         if (questionsError || !questionsData) {
+          console.error('QuizTaking: Failed to load questions', questionsError);
           toast({
             title: "Error",
             description: "Failed to load quiz questions",
@@ -111,7 +122,10 @@ const QuizTaking = () => {
           .select()
           .single();
 
+        console.log('QuizTaking: Attempt creation result', { attemptData, attemptError });
+
         if (attemptError || !attemptData) {
+          console.error('QuizTaking: Failed to create attempt', attemptError);
           toast({
             title: "Error",
             description: "Failed to start quiz attempt",
@@ -122,8 +136,9 @@ const QuizTaking = () => {
         }
 
         setQuizAttemptId(attemptData.id);
+        console.log('QuizTaking: Quiz initialized successfully');
       } catch (error) {
-        console.error('Error initializing quiz:', error);
+        console.error('QuizTaking: Error initializing quiz:', error);
         navigate('/dashboard');
       } finally {
         setLoading(false);
