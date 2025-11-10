@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const ExcelQuizImport = () => {
@@ -17,6 +17,27 @@ export const ExcelQuizImport = () => {
   const [quizTopic, setQuizTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -36,17 +57,24 @@ export const ExcelQuizImport = () => {
     // Parse CSV for preview
     if (selectedFile.name.endsWith('.csv')) {
       const text = await selectedFile.text();
-      const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
+      const lines = text.split('\n').filter(line => line.trim());
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
       const preview = lines.slice(1, 4).map(line => {
-        const values = line.split(',').map(v => v.trim());
+        const values = parseCSVLine(line).map(v => v.replace(/^"|"$/g, ''));
         return headers.reduce((obj, header, idx) => {
-          obj[header] = values[idx];
+          obj[header] = values[idx] || '';
           return obj;
         }, {} as any);
       });
       setPreviewData(preview);
     }
+  };
+
+  const downloadSampleCSV = () => {
+    const link = document.createElement('a');
+    link.href = '/sample-quiz-template.csv';
+    link.download = 'quiz-template.csv';
+    link.click();
   };
 
   const handleImport = async () => {
@@ -67,7 +95,7 @@ export const ExcelQuizImport = () => {
       // Parse CSV
       const text = await file.text();
       const lines = text.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
       
       // Validate headers
       const requiredHeaders = ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'];
@@ -95,10 +123,10 @@ export const ExcelQuizImport = () => {
 
       // Parse questions
       const questions = lines.slice(1).map((line, index) => {
-        const values = line.split(',').map(v => v.trim());
+        const values = parseCSVLine(line).map(v => v.trim().replace(/^"|"$/g, ''));
         const row: any = {};
         headers.forEach((header, idx) => {
-          row[header] = values[idx];
+          row[header] = values[idx] || '';
         });
 
         return {
@@ -111,7 +139,7 @@ export const ExcelQuizImport = () => {
             C: row.option_c,
             D: row.option_d
           },
-          correct_answer: row.correct_answer,
+          correct_answer: row.correct_answer.toUpperCase(),
           explanation: row.explanation || null,
           difficulty: (row.difficulty?.toLowerCase() || 'medium') as 'easy' | 'medium' | 'hard',
           points: parseInt(row.points || '1'),
@@ -258,7 +286,12 @@ export const ExcelQuizImport = () => {
           <CardTitle>CSV Template</CardTitle>
           <CardDescription>Download or copy this template to create your quiz</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <Button onClick={downloadSampleCSV} variant="outline" className="w-full">
+            <Download className="h-4 w-4 mr-2" />
+            Download Sample CSV Template
+          </Button>
+          
           <div className="bg-muted p-4 rounded-lg">
             <pre className="text-xs overflow-x-auto">
 {`question,option_a,option_b,option_c,option_d,correct_answer,explanation,difficulty,points
