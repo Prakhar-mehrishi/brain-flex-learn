@@ -74,7 +74,7 @@ export const QuizAssignments = () => {
     setLoading(true);
     try {
       const [quizzesRes, usersRes, assignmentsRes] = await Promise.all([
-        supabase.from('quizzes').select('id, title').eq('is_published', true),
+        supabase.from('quizzes').select('id, title, is_published').order('title'),
         supabase.from('profiles').select('id, user_id, full_name, email').neq('role', 'admin'),
         supabase.from('quiz_assignments').select('*').order('assigned_at', { ascending: false })
       ]);
@@ -228,6 +228,9 @@ export const QuizAssignments = () => {
                         {quizzes.map(quiz => (
                           <SelectItem key={quiz.id} value={quiz.id}>
                             {quiz.title}
+                            {!(quiz as any).is_published && (
+                              <Badge variant="outline" className="ml-2 text-xs">Draft</Badge>
+                            )}
                           </SelectItem>
                         ))}
                       </SelectContent>

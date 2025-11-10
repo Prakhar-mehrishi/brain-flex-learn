@@ -176,20 +176,30 @@ const Dashboard = () => {
 
   const loadAssignments = async () => {
     try {
-      const { data } = await supabase
+      const { data, error: assignmentError } = await supabase
         .from('quiz_assignments')
         .select('*')
         .eq('user_id', user?.id)
         .eq('is_completed', false);
       
+      if (assignmentError) {
+        console.error('Error fetching assignments:', assignmentError);
+        return;
+      }
+      
       if (data && data.length > 0) {
         const assignmentsWithQuizzes = await Promise.all(
           data.map(async (assignment) => {
-            const { data: quiz } = await supabase
+            const { data: quiz, error: quizError } = await supabase
               .from('quizzes')
               .select('*')
               .eq('id', assignment.quiz_id)
               .single();
+            
+            if (quizError) {
+              console.error('Error fetching quiz:', quizError);
+              return null;
+            }
             
             return {
               ...assignment,
@@ -197,10 +207,20 @@ const Dashboard = () => {
             };
           })
         );
-        setAssignments(assignmentsWithQuizzes);
+        
+        // Filter out null values
+        const validAssignments = assignmentsWithQuizzes.filter(a => a !== null);
+        setAssignments(validAssignments);
+      } else {
+        setAssignments([]);
       }
     } catch (error) {
       console.error('Error fetching assignments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load assigned quizzes",
+        variant: "destructive",
+      });
     }
   };
 
@@ -443,10 +463,20 @@ const Dashboard = () => {
                           </div>
                           <Button 
                             className="ml-4"
-                            onClick={() => navigate(`/quiz/${assignment.quizzes?.id}`)}
+                            onClick={() => {
+                              if (assignment.quizzes?.id) {
+                                navigate(`/quiz/${assignment.quizzes.id}`);
+                              } else {
+                                toast({
+                                  title: "Error",
+                                  description: "Quiz not found",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
                           >
                             <Play className="h-4 w-4 mr-2" />
-                            Start
+                            Start Quiz
                           </Button>
                         </div>
                       </div>
